@@ -1,11 +1,17 @@
 <?php
+
 /*
-Plugin Name: Калькулятор кредитования
+Plugin Name: credit_calc
 Description: Расчет ежемесячной суммы платежа и отправка заявки на почту.
-Version: 1.0.15
+Version: 1.0.18
 Author: kostikovmu
 Author URI: https://kostikovmu.ru/
+Requires at least: 5.0
+Requires PHP: 5.6
+License: GPL3+
+License URI: http://www.gnu.org/licenses/gpl-3.0.txt
 */
+
 defined( 'ABSPATH' ) || exit;
 
 require_once 'inc/helpers.php';
@@ -89,16 +95,16 @@ class Credit_Calc_Plugin {
         check_admin_referer('credit_calc_option_form');
       }
 
-      $rate           = $_POST['credit_calc_rate'];
-      $email          = $_POST['credit_calc_email'];
-      $amount_start   = $_POST['credit_calc_amount_start'];
-      $term_start     = $_POST['credit_calc_term_start'];
-      $term_min       = $_POST['credit_calc_term_min'];
-      $term_max       = $_POST['credit_calc_term_max'];
-      $amount_min     = $_POST['credit_calc_amount_min'];
-      $amount_max     = $_POST['credit_calc_amount_max'];
-      $currency       = $_POST['credit_calc_currency'];
-      $step           = $_POST['credit_calc_step'];
+      $rate           = sanitize_text_field( $_POST['credit_calc_rate'] );
+      $email          = sanitize_email( $_POST['credit_calc_email'] );
+      $amount_start   = sanitize_text_field( $_POST['credit_calc_amount_start'] );
+      $term_start     = sanitize_text_field( $_POST['credit_calc_term_start'] );
+      $term_min       = sanitize_text_field( $_POST['credit_calc_term_min'] );
+      $term_max       = sanitize_text_field( $_POST['credit_calc_term_max'] );
+      $amount_min     = sanitize_text_field( $_POST['credit_calc_amount_min'] );
+      $amount_max     = sanitize_text_field( $_POST['credit_calc_amount_max'] );
+      $currency       = sanitize_text_field( $_POST['credit_calc_currency'] );
+      $step           = sanitize_text_field( $_POST['credit_calc_step'] );
 
       $options = [
         'rate'          => $rate,
@@ -129,12 +135,12 @@ class Credit_Calc_Plugin {
     }
 
     $sendto   = get_option('credit_calc')['email'];
-    $username = $_POST['name'];
-    $userphone = $_POST['phone'];
-    $amount = $_POST['amount'];
-    $term = $_POST['term'];
+    $username = sanitize_text_field( $_POST['name'] );
+    $userphone = sanitize_text_field( $_POST['phone'] );
+    $amount = sanitize_text_field( $_POST['amount'] );
+    $term = sanitize_text_field( $_POST['term'] );
     $rate = get_option('credit_calc_rate');
-    $payment = $_POST['payment'];
+    $payment = sanitize_text_field( $_POST['payment'] );
     $url = $_SERVER['HTTP_HOST'];
 
 // Формирование заголовка письма
