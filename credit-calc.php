@@ -2,8 +2,10 @@
 
 /*
 Plugin Name: credit_calc
-Description: Расчет ежемесячной суммы платежа и отправка заявки на почту.
-Version: 1.0.18
+Text Domain: credit_calc
+Domain Path: /language
+Description: The calculation the monthly payment amount and sending the request to email.
+Version: 1.1.0
 Author: kostikovmu
 Author URI: https://kostikovmu.ru/
 Requires at least: 5.0
@@ -11,6 +13,9 @@ Requires PHP: 5.6
 License: GPL3+
 License URI: http://www.gnu.org/licenses/gpl-3.0.txt
 */
+
+__('credit_calc', 'credit_calc');
+__('The calculation the monthly payment amount and sending the request to email.', 'credit_calc');
 
 defined( 'ABSPATH' ) || exit;
 
@@ -30,6 +35,7 @@ class Credit_Calc_Plugin {
     add_action( 'wp_ajax_credit_calc', [ $this, 'ajax_callback' ] );
     add_action( 'wp_ajax_nopriv_credit_calc', [ $this, 'ajax_callback' ] );
 
+    add_action('plugins_loaded', [ $this, 'init']);
     add_action('activated_plugin', [ $this, 'activated_plugin']);
 
     add_filter('plugin_action_links_' . plugin_basename(__FILE__), [ $this, 'plugin_action_links']);
@@ -44,7 +50,7 @@ class Credit_Calc_Plugin {
   public function assets()
   {
     wp_register_script('credit_calc_libs_script', plugins_url('credit_calc/js/libs.min.js'), array('jquery', 'jquery-ui-widget', 'jquery-ui-mouse', 'jquery-ui-slider'), filemtime(__DIR__ . '/js/libs.min.js'));
-    wp_register_script('credit_calc_main_script', plugins_url('credit_calc/js/main.min.js'), array('credit_calc_libs_script'), filemtime( __DIR__ .'/js/main.min.js'));
+    wp_register_script('credit_calc_main_script', plugins_url('credit_calc/js/main.js'), array('credit_calc_libs_script', 'wp-i18n'), filemtime( __DIR__ .'/js/main.js'));
 
     wp_register_style('roboto_font', 'https://fonts.googleapis.com/css?family=Roboto:300,400&display=swap&subset=cyrillic');
     wp_register_style('credit_calc_libs_style', plugins_url('credit_calc/css/libs.min.css'), array(), filemtime( __DIR__ . '/css/libs.min.css'));
@@ -52,7 +58,13 @@ class Credit_Calc_Plugin {
 
     $options = get_option('credit_calc');
 
-    wp_localize_script('credit_calc_main_script','creditCalc', $options );
+
+
+    wp_localize_script(
+      'credit_calc_main_script',
+      'creditCalc',
+      $options
+    );
   }
 
   public function short_code()
@@ -68,7 +80,14 @@ class Credit_Calc_Plugin {
   public function add_admin_pages()
   {
 
-    $submenu = add_submenu_page('options-general.php', 'Кальлкулятор кредита - настройки', 'Кальлкулятор кредита', 'manage_options', 'credit_calc_option', [ $this , 'change_option']);
+    $submenu = add_submenu_page(
+      'options-general.php',
+      __('Credit calc - settings','credit_calc'),
+      __('Credit calc','credit_calc'),
+      'manage_options',
+      'credit_calc_option',
+      [ $this , 'change_option']
+    );
 
     add_action('load-' . $submenu, [ $this, 'load_admin_scripts' ]);
   }
@@ -83,14 +102,12 @@ class Credit_Calc_Plugin {
   }
   public function change_option() {
 
-//  Была ли отправлена форма с помощью нашей кнопки
     if (isset($_POST['credit_calc_option_btn'])) {
-      //    проверка прав пользователя на запись
+
       if (function_exists('current_user_can')
         && !current_user_can('manage_options'))
-        die(_e('Hacker', 'credit_form'));
+        die(_e('Hacker', 'credit_calc'));
 
-//    проверка одноразового поля
       if (function_exists('check_admin_referer')) {
         check_admin_referer('credit_calc_option_form');
       }
@@ -104,6 +121,7 @@ class Credit_Calc_Plugin {
       $amount_min     = sanitize_text_field( $_POST['credit_calc_amount_min'] );
       $amount_max     = sanitize_text_field( $_POST['credit_calc_amount_max'] );
       $currency       = sanitize_text_field( $_POST['credit_calc_currency'] );
+      $phone_mask     = sanitize_text_field( $_POST['credit_calc_phone_mask'] ) ;
       $step           = sanitize_text_field( $_POST['credit_calc_step'] );
 
       $options = [
@@ -116,6 +134,7 @@ class Credit_Calc_Plugin {
         'amount_min'    => $amount_min,
         'amount_max'    => $amount_max,
         'currency'      => $currency,
+        'phoneMask'      => $phone_mask,
         'step'          => $step,
         'ajaxUrl'       => admin_url('admin-ajax.php')
       ];
@@ -143,25 +162,22 @@ class Credit_Calc_Plugin {
     $payment = sanitize_text_field( $_POST['payment'] );
     $url = $_SERVER['HTTP_HOST'];
 
-// Формирование заголовка письма
-    $subject  = "Сообщение с сайта";
+    $subject  = __('Request from site','credit_calc');
     $headers = "From: '{$url}' <{$sendto}>\r\n";
     $headers .= "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html;charset=utf-8 \r\n";
 
-// Формирование тела письма
     $msg  = "<html><body style='font-family:Arial,sans-serif;'>";
-    $msg .= "<h2 style='font-weight:bold;border-bottom:1px dotted #ccc;'>Сообщение с сайта $url</h2>\r\n";
-    $msg .= "<p><strong>Имя: </strong> " .$username."</p>\r\n";
-    $msg .= "<p><strong>Телефон: </strong> " .$userphone."</p>\r\n";
-    $msg .= "<p><strong>Сумма: </strong> " .$amount."</p>\r\n";
-    $msg .= "<p><strong>Срок: </strong> " .$term."</p>\r\n";
-    $msg .= "<p><strong>Ставка: </strong> " .$rate." %</p>\r\n";
-    $msg .= "<p><strong>Платеж: </strong> " .$payment."</p>\r\n";
+    $msg .= "<h2 style='font-weight:bold;border-bottom:1px dotted #ccc;'>".__('Request from site','credit_calc') . '&nbsp;'. $url."</h2>\r\n";
+    $msg .= "<p><strong>".__('First name','credit_calc').":&nbsp;</strong> " .$username."</p>\r\n";
+    $msg .= "<p><strong>".__('Phone','credit_calc').":&nbsp;</strong> " .$userphone."</p>\r\n";
+    $msg .= "<p><strong>".__('Amount','credit_calc').":&nbsp;</strong> " .$amount."</p>\r\n";
+    $msg .= "<p><strong>".__('Term','credit_calc').":&nbsp;</strong> " .$term."</p>\r\n";
+    $msg .= "<p><strong>".__('Rate','credit_calc').":&nbsp;</strong> " .$rate." %</p>\r\n";
+    $msg .= "<p><strong>".__('Payment','credit_calc').":&nbsp;</strong> " .$payment."</p>\r\n";
 
     $msg .= "</body></html>";
 
-// отправка сообщения
     if(@mail($sendto, $subject, $msg, $headers)) {
       echo 1;
     } else {
@@ -174,14 +190,15 @@ class Credit_Calc_Plugin {
     $options = [
       'rate' => 2,
       'email' => 'name@site.ru',
-      'amount_start' => 50000,
+      'amount_start' => 1000,
       'term_start' => 36,
       'term_min' => 3,
       'term_max' => 60,
-      'step' => 10000,
-      'amount_min' => 10000,
-      'amount_max' => 1000000,
-      'currency' => '₽',
+      'step' => 100,
+      'amount_min' => 100,
+      'amount_max' => 10000,
+      'currency' => '$',
+      'phoneMask' => '+1 (999) 999-99-99',
       'ajaxUrl' => admin_url('admin-ajax.php')
     ];
     add_option('credit_calc', $options);
@@ -194,6 +211,13 @@ class Credit_Calc_Plugin {
     if( $plugin === plugin_basename(__FILE__ ) ) {
       exit ( wp_redirect( admin_url( 'options-general.php?page=credit_calc_option' ) ) );
     }
+  }
+  public function init() {
+    load_plugin_textdomain(
+      'credit_calc' ,
+      false,
+      dirname( plugin_basename( __FILE__ ) ) . '/language/'
+    );
   }
   public function plugin_action_links( $links ) {
     $url = admin_url( 'options-general.php?page=credit_calc_option' );
